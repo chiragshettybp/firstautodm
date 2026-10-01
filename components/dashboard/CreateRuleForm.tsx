@@ -258,41 +258,55 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
 
   return (
     <div className="space-y-8">
-      {/* ── Sexy Stepper Timeline ── */}
-      <div className="relative bg-card border border-border rounded-2xl p-4 md:px-8">
-        <div className="flex items-center justify-between gap-4 relative">
+      {/* ── Stepper Timeline ── */}
+      <div className="rounded-[16px] border border-border bg-card p-4 md:px-8">
+        <div className="relative flex items-center justify-between gap-4">
           {STEPS.map((s, i) => {
             const isActive = i === step
             const isCompleted = i < step
             return (
-              <div key={s.key} className="flex items-center gap-3 flex-1 last:flex-initial">
+              <div
+                key={s.key}
+                className="flex flex-1 items-center gap-3 last:flex-initial"
+              >
                 <button
                   type="button"
-                  onClick={() => { if (i < step || stepValid[step]) setStep(i) }}
-                  className="flex items-center gap-3 group text-left focus:outline-none"
+                  onClick={() => {
+                    if (i < step || stepValid[step]) setStep(i)
+                  }}
+                  aria-current={isActive ? 'step' : undefined}
+                  className="group text-left"
                 >
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                    isCompleted
-                      ? "bg-accent-yellow text-black shadow-[0_0_15px_rgba(255,225,77,0.3)]"
-                      : isActive
-                        ? "bg-white text-black ring-4 ring-white/10"
-                        : "bg-muted text-muted-foreground border border-border"
-                  }`}>
-                    {isCompleted ? <Check className="w-4 h-4 stroke-[3]" /> : i + 1}
-                  </div>
-                  <div className="hidden md:block">
-                    <p className={`text-xs font-bold tracking-tight uppercase ${isActive ? "text-foreground" : "text-muted-foreground group-hover:text-neutral-200"}`}>
+                  <span
+                    className={`flex size-9 items-center justify-center rounded-[12px] text-xs font-bold transition-colors duration-300 ${
+                      isCompleted
+                        ? 'bg-brand text-brand-foreground'
+                        : isActive
+                          ? 'border border-border bg-surface text-foreground'
+                          : 'border border-border bg-surface-secondary text-muted-text'
+                    }`}
+                  >
+                    {isCompleted ? (
+                      <Check className="check-pop size-4" strokeWidth={3} />
+                    ) : (
+                      i + 1
+                    )}
+                  </span>
+                  <span className="hidden md:block">
+                    <span
+                      className={`block text-xs font-bold tracking-tight uppercase ${isActive ? 'text-foreground' : 'text-muted-text group-hover:text-foreground'}`}
+                    >
                       {s.label}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground font-mono-ui">{s.sub}</p>
-                  </div>
+                    </span>
+                    <span className="block text-[10px] text-muted-text">{s.sub}</span>
+                  </span>
                 </button>
                 {i < STEPS.length - 1 && (
-                  <div className="flex-1 h-[2px] mx-2 relative bg-muted rounded-full overflow-hidden">
-                    <div className={`absolute inset-y-0 left-0 transition-all duration-500 bg-accent-yellow ${
-                      isCompleted ? "w-full" : "w-0"
-                    }`} />
-                  </div>
+                  <span className="relative mx-2 h-0.5 flex-1 overflow-hidden rounded-full bg-separator">
+                    <span
+                      className={`absolute inset-y-0 left-0 bg-brand transition-all duration-300 ${isCompleted ? 'w-full' : 'w-0'}`}
+                    />
+                  </span>
                 )}
               </div>
             )
@@ -301,9 +315,9 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
       </div>
 
       {/* ── Two Column Workspace ── */}
-      <div className="grid lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] gap-6 xl:gap-8 items-start">
+      <div className="grid lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] items-start gap-6 xl:gap-8">
         {/* ── LEFT: Config Form ── */}
-        <div className="bg-card border border-border rounded-2xl p-5 md:p-8 space-y-6 min-w-0">
+        <div className="min-w-0 space-y-6 rounded-[16px] border border-border bg-card p-5 md:p-8">
           {/* ===== STEP 1: TRIGGER ===== */}
           {step === 0 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
@@ -326,16 +340,18 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                         key={key}
                         type="button"
                         onClick={() => setStoryTriggerType(key)}
-                        className={`p-4 rounded-xl border text-left flex flex-col gap-2 transition-all duration-200 ${
+                        className={`flex flex-col gap-2 rounded-[12px] border p-4 text-left transition-colors duration-200 ${
                           storyTriggerType === key
-                            ? "border-accent-yellow bg-accent-yellow/10 text-accent-yellow-foreground"
-                            : "border-border text-muted-foreground hover:border-border hover:text-foreground bg-muted/30"
+                            ? 'border-brand bg-brand-soft text-brand-soft-foreground'
+                            : 'border-border bg-surface text-muted-text hover:text-foreground'
                         }`}
                       >
-                        <span className={storyTriggerType === key ? "text-accent-yellow-foreground" : "text-muted-foreground"}>{icon}</span>
+                        <span className={storyTriggerType === key ? 'text-brand' : 'text-muted-text'}>
+                          {icon}
+                        </span>
                         <div>
                           <p className="text-xs font-bold uppercase tracking-wider">{label}</p>
-                          <p className="text-[10px] text-muted-foreground font-normal mt-0.5">{desc}</p>
+                          <p className="text-[10px] text-muted-text font-normal mt-0.5">{desc}</p>
                         </div>
                       </button>
                     ))}
@@ -347,9 +363,9 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                 <div className="space-y-4">
                   <FieldLabel>Automate which post or reel?</FieldLabel>
                   {loadingReels ? (
-                    <div className="p-8 flex flex-col items-center justify-center gap-3 border border-border rounded-2xl bg-white/[0.01]">
-                      <Loader2 className="w-6 h-6 animate-spin text-accent-yellow-foreground" />
-                      <span className="text-xs text-muted-foreground font-mono-ui">Fetching Instagram feed...</span>
+                    <div className="p-8 flex flex-col items-center justify-center gap-3 border border-border rounded-2xl bg-surface-secondary">
+                      <Loader2 className="w-6 h-6 animate-spin text-brand-soft-foreground" />
+                      <span className="text-xs text-muted-text">Fetching Instagram feed...</span>
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-3 max-h-[55vh] sm:max-h-[420px] overflow-y-auto pr-1 pb-1">
@@ -360,16 +376,16 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                           setSelectedReel(null)
                           setHasSelectedReelOption(true)
                         }}
-                        className={`aspect-square rounded-xl border flex flex-col items-center justify-center p-2 sm:p-4 text-center transition-all duration-200 ${
-                                                  hasSelectedReelOption && selectedReel === null
-                                                    ? "border-accent-yellow ring-2 ring-accent-yellow/30 bg-accent-yellow/10"
-                                                    : "border-border bg-card hover:border-foreground/30 hover:bg-accent"
-                                                }`}
-                                              >
-                                                <Globe className="w-6 h-6 mb-2 text-accent-blue" />
-                                                <span className="text-xs font-bold text-foreground">All Posts & Reels</span>
-                                                <span className="text-[10px] text-muted-foreground mt-1 font-mono-ui">Global Trigger</span>
-                                              </button>
+                        className={`aspect-square flex flex-col items-center justify-center rounded-[12px] border p-2 text-center transition-colors duration-200 sm:p-4 ${
+                          hasSelectedReelOption && selectedReel === null
+                            ? 'border-brand bg-brand-soft'
+                            : 'border-border bg-card hover:bg-surface-secondary'
+                        }`}
+                      >
+                        <Globe className="mb-2 size-6 text-brand" />
+                        <span className="text-xs font-bold text-foreground">All Posts &amp; Reels</span>
+                        <span className="mt-1 text-[10px] text-muted-text">Global Trigger</span>
+                      </button>
 
                       {reels.map((reel) => {
                         const isSelected = hasSelectedReelOption && selectedReel?.id === reel.id
@@ -381,39 +397,40 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                               setSelectedReel(reel)
                               setHasSelectedReelOption(true)
                             }}
-                            className={`aspect-square rounded-xl border overflow-hidden relative group text-left transition-all duration-200 bg-neutral-900 ${
+                            className={`group relative aspect-square overflow-hidden rounded-[12px] border bg-neutral-900 text-left transition-colors duration-200 ${
                                                         isSelected
-                                                          ? "border-accent-yellow ring-2 ring-accent-yellow/30"
-                                                          : "border-border hover:border-foreground/40"
+                                                          ? 'border-brand ring-2 ring-brand/30'
+                                                          : 'border-border hover:border-foreground/40'
                                                       }`}
                                                     >
                                                       {reel.image_url ? (
+                                                        // eslint-disable-next-line @next/next/no-img-element
                                                         <img
                                                           src={reel.image_url}
                                                           alt=""
                                                           loading="lazy"
-                                                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                                          className="size-full object-cover transition-transform duration-200 group-hover:scale-105"
                                                         />
                                                       ) : (
-                                                        <div className="w-full h-full bg-neutral-900 flex items-center justify-center">
-                                                          <Film className="w-6 h-6 text-neutral-500" />
+                                                        <div className="flex size-full items-center justify-center bg-neutral-900">
+                                                          <Film className="size-6 text-neutral-600" />
                                                         </div>
                                                       )}
 
                                                       {/* Subtle dark gradient so caption + type pill stay readable in BOTH themes */}
-                                                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                                                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
                                                       {/* Type Overlay */}
-                                                      <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/70 text-[9px] font-mono-ui text-white uppercase tracking-wider border border-white/10">
+                                                      <span className="absolute top-2 left-2 rounded-[6px] border border-white/10 bg-black/70 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-white uppercase">
                                                         {reel.media_type === "STORY" ? "Story" : reel.media_type === "VIDEO" ? "Reel" : "Post"}
                                                       </span>
 
                                                       {/* Selected Check overlay */}
                                                       {isSelected && (
-                                                        <div className="absolute inset-0 bg-accent-yellow/20 flex items-center justify-center backdrop-blur-[1px]">
-                                                          <div className="w-9 h-9 rounded-full bg-accent-yellow text-accent-yellow-foreground flex items-center justify-center shadow-lg ring-2 ring-accent-yellow-foreground">
-                                                            <Check className="w-4 h-4 stroke-[3]" />
-                                                          </div>
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-brand/20 backdrop-blur-[1px]">
+                                                          <span className="check-pop flex size-9 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-lg ring-2 ring-brand-foreground">
+                                                            <Check className="size-4" strokeWidth={3} />
+                                                          </span>
                                                         </div>
                                                       )}
 
@@ -435,8 +452,8 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                   {triggerSource === "comment" ? (
                     <div className="space-y-2">
                       <FieldLabel>Keywords to match</FieldLabel>
-                      <p className="text-[11px] text-muted-foreground">
-                        What keyword triggers this DM? <span className="text-accent-yellow-foreground font-semibold">Keep empty to reply to every comment.</span>
+                      <p className="text-[11px] text-muted-text">
+                        What keyword triggers this DM? <span className="text-brand-soft-foreground font-semibold">Keep empty to reply to every comment.</span>
                       </p>
                       <TagInput
                         value={triggers}
@@ -445,13 +462,13 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                       />
                     </div>
                   ) : needsKeywords ? (
-                    <div className="space-y-2 bg-muted/40 p-5 rounded-2xl border border-border">
+                    <div className="space-y-2 bg-surface-secondary p-5 rounded-2xl border border-border">
                       <FieldLabel>
                         {triggerSource === "story" && storyTriggerType === "reaction"
                           ? "Only react on these emojis"
                           : "Trigger keywords"}
                       </FieldLabel>
-                      <p className="text-[11px] text-muted-foreground mb-3">
+                      <p className="text-[11px] text-muted-text mb-3">
                         {triggerSource === "story" && storyTriggerType === "reaction"
                           ? "Leave empty to trigger on any emoji reaction."
                           : "Matches exact phrases or words (case-insensitive)."}
@@ -503,7 +520,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                         type="button"
                         onClick={() => setReplyMode(key)}
                         className={`h-11 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${
-                          replyMode === key ? "border-accent-yellow bg-accent-yellow/10 text-accent-yellow-foreground" : "border-border text-muted-foreground hover:text-foreground"
+                          replyMode === key ? "border-brand bg-brand-soft text-brand-soft-foreground" : "border-border text-muted-text hover:text-foreground"
                         }`}
                       >
                         {label}
@@ -514,9 +531,9 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
               )}
 
               {triggerSource === "comment" && replyMode !== "dm_only" && (
-                <div className="space-y-2 bg-muted/40 p-5 rounded-2xl border border-border">
+                <div className="space-y-2 bg-surface-secondary p-5 rounded-2xl border border-border">
                   <FieldLabel>Public comments rotation</FieldLabel>
-                  <p className="text-[11px] text-muted-foreground mb-3">Add multiple phrases. We rotate them dynamically to look human.</p>
+                  <p className="text-[11px] text-muted-text mb-3">Add multiple phrases. We rotate them dynamically to look human.</p>
                   <TagInput value={publicReplies} onChange={setPublicReplies} placeholder={'e.g. "Sent you a DM!", "Check your inbox!"'} />
                 </div>
               )}
@@ -536,7 +553,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                           type="button"
                           onClick={() => setType(key)}
                           className={`p-3 rounded-xl border text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-                            type === key ? "border-accent-yellow bg-accent-yellow/10 text-accent-yellow-foreground" : "border-border text-muted-foreground hover:text-foreground"
+                            type === key ? "border-brand bg-brand-soft text-brand-soft-foreground" : "border-border text-muted-text hover:text-foreground"
                           }`}
                         >
                           {icon}
@@ -554,10 +571,10 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                         onChange={(e) => setMessageText(e.target.value)}
                         rows={5}
                         maxLength={1000}
-                        className="w-full bg-muted/30 border border-border rounded-2xl px-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-accent-yellow/50 transition-colors"
+                        className="field resize-none"
                         placeholder="Type the message to send in DMs..."
                       />
-                      <p className="font-mono-ui text-[10px] text-muted-foreground text-right">{messageText.length}/1000</p>
+                      <p className="text-[10px] text-muted-text text-right">{messageText.length}/1000</p>
                     </div>
                   )}
 
@@ -573,22 +590,24 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                         <div className="flex items-center justify-between border-b border-border pb-2">
                           <FieldLabel>Interactive buttons ({buttons.length}/3)</FieldLabel>
                           <button type="button" onClick={addButton} disabled={buttons.length >= 3}
-                            className="font-mono-ui text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40 flex items-center gap-1 transition-colors">
+                            className="text-[11px] text-muted-text hover:text-foreground disabled:opacity-40 flex items-center gap-1 transition-colors">
                             <Plus className="w-3 h-3" /> Add button
                           </button>
                         </div>
                         {buttons.map((btn) => (
-                          <div key={btn.id} className="flex gap-2 items-center bg-white/[0.02] p-3 rounded-2xl border border-border">
+                          <div key={btn.id} className="flex flex-wrap items-center gap-2 rounded-[12px] border border-border bg-surface-secondary p-3">
                             <input
                               value={btn.title}
                               onChange={(e) => updateButton(btn.id, "title", e.target.value)}
-                              className="h-8 text-xs flex-1 bg-transparent border-none px-2 text-foreground placeholder:text-muted-foreground focus:outline-none"
+                              className="field h-8 flex-1 text-xs"
                               placeholder="Button label"
+                              aria-label="Button label"
                             />
                             <select
                               value={btn.type}
                               onChange={(e) => updateButton(btn.id, "type", e.target.value)}
-                              className="h-8 text-[11px] bg-black border border-border rounded-lg px-2 text-foreground focus:outline-none"
+                              aria-label="Button type"
+                              className="field h-8 w-auto cursor-pointer text-[11px]"
                             >
                               <option value="web_url">Open Link</option>
                               <option value="postback">Trigger Flow</option>
@@ -596,11 +615,17 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                             <input
                               value={btn.type === "web_url" ? btn.url : btn.payload}
                               onChange={(e) => updateButton(btn.id, btn.type === "web_url" ? "url" : "payload", e.target.value)}
-                              className="h-8 text-xs flex-1 bg-transparent border-none px-2 text-foreground placeholder:text-muted-foreground focus:outline-none font-mono"
+                              className="field h-8 flex-1 text-xs"
+                              aria-label={btn.type === "web_url" ? "Link URL" : "Flow keyword"}
                               placeholder={btn.type === "web_url" ? "https://link" : "flow_keyword"}
                             />
-                            <button type="button" onClick={() => removeButton(btn.id)} className="text-muted-foreground hover:text-red-400 p-1.5 transition-colors">
-                              <Trash2 className="w-4 h-4" />
+                            <button
+                              type="button"
+                              onClick={() => removeButton(btn.id)}
+                              aria-label="Remove button"
+                              className="press-subtle p-1.5 text-muted-text transition-colors hover:text-danger"
+                            >
+                              <Trash2 className="size-4" />
                             </button>
                           </div>
                         ))}
@@ -619,7 +644,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                               type="button"
                               onClick={() => setMediaType(m)}
                               className={`h-10 rounded-xl border text-xs font-bold uppercase transition-all ${
-                                mediaType === m ? "border-accent-yellow bg-accent-yellow/10 text-accent-yellow-foreground" : "border-border text-muted-foreground hover:text-foreground"
+                                mediaType === m ? "border-brand bg-brand-soft text-brand-soft-foreground" : "border-border text-muted-text hover:text-foreground"
                               }`}
                             >
                               {m === "image" ? "Photo" : m === "video" ? "Video" : "Audio"}
@@ -637,7 +662,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                       <div className="flex items-center justify-between border-b border-border pb-2">
                         <FieldLabel>Quick Reply chips ({quickReplies.length}/4)</FieldLabel>
                         <button type="button" onClick={addQuickReply} disabled={quickReplies.length >= 4}
-                          className="font-mono-ui text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-40 flex items-center gap-1 transition-colors">
+                          className="text-[11px] text-muted-text hover:text-foreground disabled:opacity-40 flex items-center gap-1 transition-colors">
                           <Plus className="w-3 h-3" /> Add chip
                         </button>
                       </div>
@@ -649,10 +674,10 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                                 value={q.title}
                                 onChange={(e) => updateQuickReply(q.id, e.target.value)}
                                 maxLength={20}
-                                className="h-10 text-xs flex-1 bg-muted/30 border border-border rounded-xl px-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent-yellow/50"
+                                className="field h-10 text-xs flex-1"
                                 placeholder='e.g. "Send Details!"'
                               />
-                              <button type="button" onClick={() => removeQuickReply(q.id)} className="text-muted-foreground hover:text-red-400 p-1.5 transition-colors">
+                              <button type="button" onClick={() => removeQuickReply(q.id)} className="text-muted-text hover:text-danger p-1.5 transition-colors">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -685,20 +710,20 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                 <ToggleRow icon={<Lock className="w-5 h-5" />} title="Follow gate required" sub="Only followers get the payload. Non-followers get follow prompt first." on={checkFollow} onToggle={() => setCheckFollow(!checkFollow)} />
                 <ToggleRow icon={<Eye className="w-5 h-5" />} title="Mimic active typing status" sub="Displays typing bubble indicators to look completely organic." on={typingIndicator} onToggle={() => setTypingIndicator(!typingIndicator)} />
                 
-                <div className="flex items-center justify-between p-4 rounded-2xl border border-border bg-white/[0.01]">
+                <div className="flex items-center justify-between p-4 rounded-2xl border border-border bg-surface-secondary">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center border border-border">
-                      <Timer className="w-4.5 h-4.5 text-muted-foreground" />
+                    <div className="w-9 h-9 rounded-xl bg-surface-secondary flex items-center justify-center border border-border">
+                      <Timer className="w-4.5 h-4.5 text-muted-text" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-foreground">Randomized delivery delay</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">Waits before sending to simulate real human delays.</p>
+                      <p className="text-[11px] text-muted-text mt-0.5">Waits before sending to simulate real human delays.</p>
                     </div>
                   </div>
                   <select
                     value={delaySeconds}
                     onChange={(e) => setDelaySeconds(Number(e.target.value))}
-                    className="bg-black border border-border rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none hover:border-border transition-all cursor-pointer"
+                    className="field h-10 w-auto shrink-0 cursor-pointer text-xs"
                   >
                     <option value={0}>Send Immediately</option>
                     <option value={3}>3s delay</option>
@@ -710,13 +735,13 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
               </div>
 
               {/* Plain-text Summary Panel */}
-              <div className="rounded-2xl border border-accent-yellow/15 bg-accent-yellow/[0.03] p-5 space-y-2">
+              <div className="rounded-2xl border border-brand/15 bg-brand-soft p-5 space-y-2">
                               <div className="flex items-center gap-2">
-                                <Sparkles className="w-4 h-4 text-accent-yellow-foreground" />
-                                <span className="text-xs font-mono-ui uppercase tracking-widest text-accent-yellow-foreground font-bold">Rule Logic Summary</span>
+                                <Sparkles className="w-4 h-4 text-brand-soft-foreground" />
+                                <span className="text-xs uppercase tracking-widest text-brand-soft-foreground font-bold">Rule Logic Summary</span>
                               </div>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                When <span className="text-foreground font-semibold underline decoration-accent-yellow/40 decoration-2">{summary.who}</span>, we will <span className="text-accent-yellow-foreground font-semibold">{summary.what}</span>.
+                              <p className="text-xs text-muted-text leading-relaxed">
+                                When <span className="text-foreground font-semibold underline decoration-brand/40 decoration-2">{summary.who}</span>, we will <span className="text-brand-soft-foreground font-semibold">{summary.what}</span>.
                               </p>
               </div>
             </div>
@@ -728,7 +753,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
               <button
                 type="button"
                 onClick={() => setStep(step - 1)}
-                className="flex items-center gap-2 h-11 px-5 rounded-full border border-border text-muted-foreground hover:text-foreground hover:border-border font-mono-ui text-xs font-bold transition-all"
+                className="button button--outline text-xs"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Back
@@ -740,7 +765,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                 type="button"
                 onClick={() => { if (stepValid[step]) setStep(step + 1) }}
                 disabled={!stepValid[step]}
-                className="flex items-center gap-2 h-11 px-6 rounded-full bg-white text-black font-mono-ui text-xs font-bold hover:bg-accent-yellow hover:shadow-[0_0_20px_rgba(255,225,77,0.25)] active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed ml-auto"
+                className="button button--primary ml-auto text-xs"
               >
                 Continue
                 <ChevronRight className="w-4 h-4" />
@@ -750,7 +775,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                 type="button"
                 onClick={handleSubmit}
                 disabled={!canSave || saving}
-                className="flex items-center justify-center gap-2 h-11 px-8 rounded-full bg-accent-yellow text-black font-mono-ui text-sm font-bold hover:brightness-95 hover:shadow-[0_0_25px_rgba(255,225,77,0.35)] active:scale-[0.98] transition-all disabled:opacity-30 disabled:cursor-not-allowed ml-auto"
+                className="button button--primary ml-auto text-sm"
               >
                 {saving ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <Zap className="w-4 h-4 stroke-[2.5]" />}
                 {saving ? "Saving Changes..." : isEditing ? "Save Automation" : "Go Live"}
@@ -763,19 +788,19 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
         {replyMode !== "public_only" && (
           <div className="hidden lg:block sticky top-6 dark">
             <div className="text-center mb-3">
-              <span className="font-mono-ui text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-bold">Interactive Preview</span>
+              <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-600 font-bold">Interactive Preview</span>
             </div>
             
             {/* iPhone Outer Frame — sized to fit the 300px right rail without overflowing */}
-            <div className="mx-auto w-[260px] xl:w-[300px] h-[500px] xl:h-[560px] rounded-[2.5rem] xl:rounded-[3rem] border-[7px] xl:border-8 border-[#1f1f1e] bg-black shadow-2xl relative flex flex-col overflow-hidden ring-1 ring-white/10">
+            <div className="mx-auto w-[260px] xl:w-[300px] h-[500px] xl:h-[560px] rounded-[2.5rem] xl:rounded-[3rem] border-[7px] xl:border-8 border-neutral-800 bg-black shadow-2xl relative flex flex-col overflow-hidden ring-1 ring-white/10">
               
               {/* iPhone Dynamic Island */}
               <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-24 h-5 bg-black rounded-full z-50 flex items-center justify-center">
-                <div className="w-2.5 h-2.5 rounded-full bg-muted border border-neutral-800 ml-auto mr-3" />
+                <div className="w-2.5 h-2.5 rounded-full bg-surface-secondary border border-neutral-800 ml-auto mr-3" />
               </div>
 
               {/* Status Bar Mockup */}
-              <div className="h-8 bg-neutral-950 flex items-end justify-between px-6 pb-1 text-[9px] text-foreground/80 font-mono-ui z-40 select-none">
+              <div className="h-8 bg-neutral-950 flex items-end justify-between px-6 pb-1 text-[9px] text-foreground/80 z-40 select-none">
                 <span>9:41</span>
                 <div className="flex items-center gap-1">
                   <span>5G</span>
@@ -788,16 +813,16 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                 <div className="flex items-center gap-2">
                   <ArrowLeft className="w-4 h-4 text-foreground cursor-pointer" />
                   <div className="relative">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#8a3ab9] via-[#e95950] to-[#fccc63] p-[1.5px]">
-                      <div className="w-full h-full rounded-full bg-black flex items-center justify-center text-[10px] font-bold text-foreground font-mono">
+                    <div className="w-8 h-8 rounded-full bg-instagram-story-ring p-[1.5px]">
+                      <div className="w-full h-full rounded-full bg-neutral-950 flex items-center justify-center text-[10px] font-bold text-white">
                         {(editRule?.name || "T").substring(0,1).toUpperCase()}
                       </div>
                     </div>
-                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-neutral-950" />
+                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-instagram-online rounded-full border-2 border-neutral-950" />
                   </div>
                   <div className="leading-tight">
                     <p className="text-[11px] font-semibold text-foreground truncate max-w-[100px]">@{userId ? "test_creator" : "creator"}</p>
-                    <p className="text-[8px] text-green-500 font-medium">Active now</p>
+                    <p className="text-[8px] text-instagram-online font-medium">Active now</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3.5 text-foreground">
@@ -811,8 +836,8 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
               <div className="flex-1 bg-black px-3 py-4 space-y-4 overflow-y-auto font-sans flex flex-col justify-end">
                 {/* Incoming bubble */}
                 <div className="flex justify-start items-end gap-1.5">
-                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] text-foreground">U</div>
-                  <div className="bg-[#1f1f1e] text-foreground rounded-2xl rounded-bl-sm px-3.5 py-2 text-xs max-w-[75%] shadow-md">
+                  <div className="w-6 h-6 rounded-full bg-surface-secondary flex items-center justify-center text-[9px] text-foreground">U</div>
+                  <div className="bg-instagram-bubble text-foreground rounded-2xl rounded-bl-sm px-3.5 py-2 text-xs max-w-[75%] shadow-md">
                     {incomingMsg(triggerSource, triggers)}
                   </div>
                 </div>
@@ -820,7 +845,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                 {/* Typing indicator simulator */}
                 {typingIndicator && (
                   <div className="flex justify-end pr-1 animate-pulse">
-                    <span className="text-[9px] text-muted-foreground font-mono-ui italic">typing indicator active...</span>
+                    <span className="text-[9px] text-muted-text italic">typing indicator active...</span>
                   </div>
                 )}
 
@@ -829,46 +854,46 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                   <div className="flex justify-end items-end gap-1.5 animate-in fade-in zoom-in-95 duration-200">
                     <div className="max-w-[80%] space-y-1.5 flex flex-col items-end">
                       {type === "text" && (
-                        <div className="bg-[#3797f0] text-foreground rounded-2xl rounded-br-sm px-4 py-2.5 text-xs whitespace-pre-wrap break-words leading-relaxed shadow-lg">
+                        <div className="bg-instagram-blue text-foreground rounded-2xl rounded-br-sm px-4 py-2.5 text-xs whitespace-pre-wrap break-words leading-relaxed shadow-lg">
                           {messageText || "Type message content..."}
                         </div>
                       )}
                       {type === "card" && (
-                        <div className="bg-muted border border-border rounded-2xl overflow-hidden w-48 shadow-2xl">
+                        <div className="bg-surface-secondary border border-border rounded-2xl overflow-hidden w-48 shadow-2xl">
                           {cardImage && cardImage.startsWith("http") && (
                             <img src={cardImage} alt="" className="w-full h-24 object-cover" loading="lazy" />
                           )}
                           <div className="p-3">
                             <p className="text-xs font-bold text-foreground line-clamp-1">{cardTitle || "Card Title"}</p>
-                            {cardSubtitle && <p className="text-[10px] text-muted-foreground mt-1 line-clamp-2 leading-tight">{cardSubtitle}</p>}
+                            {cardSubtitle && <p className="text-[10px] text-muted-text mt-1 line-clamp-2 leading-tight">{cardSubtitle}</p>}
                           </div>
                           {buttons.filter((b) => b.title).map((b) => (
-                            <div key={b.id} className="border-t border-border py-2 text-center text-[10px] font-bold text-[#3797f0] bg-white/[0.01] cursor-pointer hover:bg-white/[0.03] transition-colors">
+                            <div key={b.id} className="border-t border-border py-2 text-center text-[10px] font-bold text-instagram-blue bg-surface-secondary cursor-pointer hover:bg-surface-secondary transition-colors">
                               {b.title}
                             </div>
                           ))}
                         </div>
                       )}
                       {type === "media" && (
-                        <div className="bg-muted border border-border rounded-2xl w-40 h-40 overflow-hidden flex items-center justify-center relative group shadow-xl">
+                        <div className="bg-surface-secondary border border-border rounded-2xl w-40 h-40 overflow-hidden flex items-center justify-center relative group shadow-xl">
                           {mediaType === "image" && mediaUrl.startsWith("http") ? (
                             <img src={mediaUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
                           ) : (
-                            <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+                            <div className="flex flex-col items-center gap-1.5 text-muted-text">
                               <ImageIcon className="w-6 h-6" />
-                              <span className="text-[9px] uppercase font-mono-ui tracking-wider">{mediaType}</span>
+                              <span className="text-[9px] uppercase tracking-wider">{mediaType}</span>
                             </div>
                           )}
                         </div>
                       )}
                       {type === "media" && messageText && (
-                        <div className="bg-[#3797f0] text-foreground rounded-2xl rounded-br-sm px-4 py-2.5 text-xs leading-relaxed shadow-lg">{messageText}</div>
+                        <div className="bg-instagram-blue text-foreground rounded-2xl rounded-br-sm px-4 py-2.5 text-xs leading-relaxed shadow-lg">{messageText}</div>
                       )}
                     </div>
                   </div>
                 ) : (
                   <div className="flex justify-end animate-pulse">
-                    <div className="border border-dashed border-border bg-white/[0.01] rounded-2xl px-4 py-3 text-[10px] text-muted-foreground font-mono-ui italic text-center w-full">
+                    <div className="border border-dashed border-border bg-surface-secondary rounded-2xl px-4 py-3 text-[10px] text-muted-text italic text-center w-full">
                       Configure step 2 to build payload
                     </div>
                   </div>
@@ -878,7 +903,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                 {type !== "card" && quickReplies.filter((q) => q.title.trim()).length > 0 && (
                   <div className="flex flex-wrap gap-1.5 justify-end pt-2">
                     {quickReplies.filter((q) => q.title.trim()).map((q) => (
-                      <span key={q.id} className="border border-[#3797f0] text-[#3797f0] hover:bg-[#3797f0]/5 cursor-pointer rounded-full px-3 py-1 text-[10px] font-bold transition-all">
+                      <span key={q.id} className="border border-instagram-blue text-instagram-blue hover:bg-instagram-blue/5 cursor-pointer rounded-full px-3 py-1 text-[10px] font-bold transition-all">
                         {q.title}
                       </span>
                     ))}
@@ -887,9 +912,9 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
               </div>
 
               {/* iPhone Footer Navigation Bar */}
-              <div className="h-12 bg-neutral-950 border-t border-border flex items-center justify-between px-5 text-muted-foreground">
+              <div className="h-12 bg-neutral-950 border-t border-border flex items-center justify-between px-5 text-muted-text">
                 <Camera className="w-4 h-4" />
-                <div className="flex-1 max-w-[150px] h-7 bg-muted border border-border rounded-full px-3 flex items-center justify-between text-[9px] text-muted-foreground">
+                <div className="flex-1 max-w-[150px] h-7 bg-surface-secondary border border-border rounded-full px-3 flex items-center justify-between text-[9px] text-muted-text">
                   <span>Message...</span>
                   <Smile className="w-3 h-3" />
                 </div>
@@ -935,19 +960,19 @@ function hasDMContent(type: string, messageText: string, cardTitle: string, medi
 function StepHeader({ number, title, description }: { number: number; title: string; description: string }) {
   return (
     <div className="border-b border-border pb-4">
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className="px-2 py-0.5 rounded-md bg-accent-yellow/10 border border-accent-yellow/25 text-[9px] font-mono-ui font-bold uppercase tracking-wider text-accent-yellow-foreground">
+      <div className="mb-1.5 flex items-center gap-2">
+        <div className="rounded-[6px] border border-brand/25 bg-brand-soft px-2 py-0.5 text-[9px] font-bold tracking-wider text-brand-soft-foreground uppercase">
           Phase {number}
         </div>
       </div>
-      <h3 className="text-xl font-bold text-foreground tracking-tight">{title}</h3>
-      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{description}</p>
+      <h3 className="text-xl font-bold tracking-[-0.02em] text-foreground">{title}</h3>
+      <p className="mt-1 text-xs leading-relaxed text-muted-text">{description}</p>
     </div>
   )
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <p className="font-mono-ui text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">{children}</p>
+  return <p className="mb-2 text-[9px] font-bold tracking-[0.18em] text-muted-text uppercase">{children}</p>
 }
 
 function TextField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
@@ -956,11 +981,19 @@ function TextField({ value, onChange, placeholder }: { value: string; onChange: 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full h-11 bg-muted/30 border border-border rounded-xl px-4 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent-yellow/50 focus:bg-muted/50 transition-all"
+      className="w-full h-11 rounded-[12px] border-0 bg-surface-secondary px-4 text-xs text-foreground shadow-[var(--field-shadow)] transition-colors placeholder:text-muted-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
     />
   )
 }
 
+/**
+ * A whole-row toggle.
+ *
+ * Uses `role="switch"` + `aria-checked` on the row itself rather than nesting a
+ * real <Switch> inside a <button>, which would be invalid HTML. This way the
+ * entire row is one control, keyboard-reachable via Enter/Space, and the
+ * visual state is never carried by colour alone.
+ */
 function ToggleRow({
   icon, title, sub, on, onToggle,
 }: {
@@ -973,18 +1006,25 @@ function ToggleRow({
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={on}
       onClick={onToggle}
-      className={`w-full p-4 rounded-2xl border text-left flex items-center gap-3.5 transition-all duration-200 bg-white/[0.01] ${
-        on ? "border-accent-yellow/40 bg-accent-yellow/[0.03]" : "border-border hover:border-border"
+      className={`flex w-full items-center gap-3.5 rounded-[12px] border p-4 text-left transition-colors duration-200 ${
+        on ? 'border-brand bg-brand-soft' : 'border-border bg-surface hover:bg-surface-secondary'
       }`}
     >
-      <span className={on ? "text-accent-yellow-foreground" : "text-muted-foreground"}>{icon}</span>
-      <span className="flex-1 min-w-0">
+      <span className={on ? 'text-brand' : 'text-muted-text'}>{icon}</span>
+      <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold text-foreground">{title}</span>
-        <span className="block text-xs text-muted-foreground mt-0.5 leading-relaxed">{sub}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-muted-text">{sub}</span>
       </span>
-      <span className={`w-10 h-5.5 rounded-full relative transition-colors shrink-0 ${on ? "bg-accent-yellow" : "bg-muted"}`}>
-        <span className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-black shadow-md transition-all ${on ? "left-[20px]" : "left-0.5"}`} />
+      <span
+        aria-hidden="true"
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-brand' : 'bg-surface-secondary'}`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-surface shadow-xs transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${on ? 'translate-x-5' : 'translate-x-0'}`}
+        />
       </span>
     </button>
   )

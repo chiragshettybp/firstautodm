@@ -1,10 +1,15 @@
 import { cn } from '@/lib/utils'
 
+/**
+ * Skeletons are the *base* of the 3-step skeleton ramp, not a flashing block.
+ * `.skeleton-wash` (globals.css) owns the shimmer keyframes.
+ */
 function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="skeleton"
-      className={cn('bg-accent animate-pulse rounded-md', className)}
+      aria-hidden="true"
+      className={cn('skeleton-wash animate-pulse rounded-[8px]', className)}
       {...props}
     />
   )

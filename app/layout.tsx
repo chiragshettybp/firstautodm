@@ -1,13 +1,18 @@
 import type React from "react"
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import type { Metadata, Viewport } from "next"
+import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Toaster } from "@/components/ui/sonner"
 import { ThemeProvider } from "@/components/theme-provider"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+// One family across marketing and product. Variable weights 400–800 cover
+// eyebrow/section/page/app/page-large display plus every text size in the scale.
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+})
 
 export const metadata: Metadata = {
   title: "InstaAuto — Instagram Automation",
@@ -29,6 +34,18 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-icon.png",
   },
+}
+
+// `viewport-fit: "cover"` lets the fixed bottom navigation paint into the
+// safe-area gutter on notched devices; padding is added via env(safe-area-*).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f5f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#050606" },
+  ],
 }
 
 const themeBootstrap = `
@@ -53,17 +70,20 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={inter.variable}>
       <head>
         {/* Pre-hydration theme bootstrap — prevents flash of wrong theme */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
-      <body className={`font-sans antialiased bg-background text-foreground`} suppressHydrationWarning>
+      <body
+        className="bg-background font-sans text-foreground antialiased"
+        suppressHydrationWarning
+      >
         <ThemeProvider>
           {children}
+          <Toaster />
         </ThemeProvider>
         <Analytics />
-        <Toaster />
       </body>
     </html>
   )

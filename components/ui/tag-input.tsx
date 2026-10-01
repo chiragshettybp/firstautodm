@@ -38,20 +38,24 @@ export function TagInput({ value, onChange, placeholder, className }: TagInputPr
     }
 
     return (
-        <div className={`flex flex-wrap gap-2 p-2 rounded-lg border border-white/10 bg-black/20 focus-within:border-[#ffe14d]/50 transition-all ${className}`}>
+        <div
+            className={`field flex flex-wrap items-center gap-2 p-2 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus ${className ?? ""}`}
+        >
             {value.map((tag, index) => (
                 <Badge
                     key={index}
-                    variant="secondary"
-                    className="bg-[#ffe14d]/10 text-[#ffe14d] border-[#ffe14d]/25 hover:bg-[#ffe14d]/20 pl-2.5 pr-1 py-1 text-xs font-medium gap-1.5"
+                    variant="brand"
+                    size="lg"
+                    className="bg-brand-soft text-brand-soft-foreground pl-2.5"
                 >
                     {tag}
                     <button
                         type="button"
                         onClick={() => removeTag(index)}
-                        className="hover:bg-purple-500/40 rounded-sm p-0.5 transition-colors"
+                        aria-label={`Remove ${tag}`}
+                        className="press-subtle -mr-1 flex size-4 items-center justify-center rounded-full text-brand-soft-foreground hover:bg-brand-soft-hover"
                     >
-                        <X className="w-3 h-3" />
+                        <X className="size-3" />
                     </button>
                 </Badge>
             ))}
@@ -61,7 +65,7 @@ export function TagInput({ value, onChange, placeholder, className }: TagInputPr
                 onKeyDown={handleKeyDown}
                 onBlur={addTag}
                 placeholder={value.length === 0 ? placeholder : ""}
-                className="flex-1 min-w-[120px] border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm px-1"
+                className="min-w-[120px] flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:outline-none"
             />
         </div>
     )

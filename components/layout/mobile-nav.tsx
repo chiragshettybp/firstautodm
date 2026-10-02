@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MoreHorizontal, Send } from 'lucide-react'
+import { MoreHorizontal, ArrowLeft } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -18,7 +18,7 @@ import {
 import {
   MOBILE_PRIMARY_NAV,
   MOBILE_SECONDARY_NAV,
-  SUPPORT_NAV_ITEM,
+  PAYPAGE_NAV_ITEM,
   isNavActive,
 } from '@/components/layout/nav-items'
 
@@ -138,14 +138,16 @@ export function MobileNav({ username = 'creator', profilePic, onLogout }: Mobile
                   })}
 
                   <a
-                    href={SUPPORT_NAV_ITEM.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={PAYPAGE_NAV_ITEM.href}
                     onClick={() => setMoreOpen(false)}
                     className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 text-sm text-muted-text transition-colors hover:bg-surface-secondary hover:text-foreground"
                   >
-                    <Send aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.8} />
-                    <span>{SUPPORT_NAV_ITEM.label}</span>
+                    <ArrowLeft
+                      aria-hidden="true"
+                      className="size-4 shrink-0"
+                      strokeWidth={1.8}
+                    />
+                    <span>{PAYPAGE_NAV_ITEM.label}</span>
                   </a>
                 </nav>
 

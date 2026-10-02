@@ -3,16 +3,16 @@
 import type React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LogOut, Send } from 'lucide-react'
+import { LogOut, ArrowLeft } from 'lucide-react'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { BrandMark } from '@/components/layout/brand-mark'
+import { BrandMark, BRAND_NAME } from '@/components/layout/brand-mark'
 import {
   NAV_ITEMS,
+  PAYPAGE_NAV_ITEM,
   SETTINGS_NAV_ITEM,
-  SUPPORT_NAV_ITEM,
   isNavActive,
 } from '@/components/layout/nav-items'
 
@@ -58,7 +58,7 @@ export function Sidebar({
       <div className="flex items-center gap-2.5 px-4 py-4">
         <BrandMark />
         <span className="flex-1 text-sm font-bold tracking-[-0.02em]">
-          insta-p8
+          {BRAND_NAME}
         </span>
         <ThemeToggle />
       </div>
@@ -115,18 +115,16 @@ export function Sidebar({
         </Link>
 
         <a
-          href={SUPPORT_NAV_ITEM.href}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={PAYPAGE_NAV_ITEM.href}
           onClick={onNavigate}
           className={cn(ROW_BASE, 'text-muted-text hover:bg-surface-secondary hover:text-foreground')}
         >
-          <Send
+          <ArrowLeft
             aria-hidden="true"
             className="size-4 shrink-0 text-muted-text group-hover:text-foreground"
             strokeWidth={1.8}
           />
-          <span className="truncate">{SUPPORT_NAV_ITEM.label}</span>
+          <span className="leading-tight">{PAYPAGE_NAV_ITEM.label}</span>
         </a>
       </nav>
 

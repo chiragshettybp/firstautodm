@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   BarChart3,
   LayoutDashboard,
   MessageSquare,
@@ -63,10 +64,15 @@ export const SETTINGS_NAV_ITEM: NavItem = {
   label: 'Settings',
 }
 
-/** External support destination — not a route, so it is not in the list. */
-export const SUPPORT_NAV_ITEM = {
-  href: 'https://t.me/instagramautomationp8',
-  label: 'Get help',
+/**
+ * External destination back to the PayPage app — not a route, so it is not in
+ * the list. Same-tab navigation on purpose: it is an escape hatch, not a
+ * parallel app.
+ */
+export const PAYPAGE_NAV_ITEM = {
+  href: 'https://paypageapp.vercel.app/dashboard',
+  label: 'Go back to PayPage Dashboard',
+  icon: ArrowLeft,
 } as const
 
 /** The four destinations that always sit in the bottom navigation bar. */

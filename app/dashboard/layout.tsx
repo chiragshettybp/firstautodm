@@ -2,7 +2,7 @@
 
 import { Sidebar } from '@/components/layout/sidebar'
 import { MobileNav } from '@/components/layout/mobile-nav'
-import { BrandMark } from '@/components/layout/brand-mark'
+import { BrandMark, BRAND_NAME } from '@/components/layout/brand-mark'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { LoadingState } from '@/components/ui/page-state'
 import { useInstagramSession } from '@/hooks/use-instagram-session'
@@ -51,7 +51,7 @@ export default function DashboardLayout({
             <span className="flex items-center gap-2.5 lg:hidden">
               <BrandMark />
               <span className="text-sm font-bold tracking-[-0.02em]">
-                insta-p8
+                {BRAND_NAME}
               </span>
             </span>
             <div className="flex-1" />

@@ -1,11 +1,14 @@
+import Image from 'next/image'
+
 import { cn } from '@/lib/utils'
 
+export const BRAND_NAME = 'Paypage Autodm'
+
 /**
- * BrandMark — the single accent, used as an identity chip.
+ * BrandMark — the logo, used as an identity chip.
  *
- * The square yellow plate with a bolt is the one place the accent appears as a
- * solid fill outside of primary actions, and it is duplicated across marketing
- * and product on purpose: the logo *is* the brand colour.
+ * Renders `/public/logo.png` at a fixed square box so it stays crisp across
+ * the marketing nav, the desktop sidebar and the mobile header.
  */
 export function BrandMark({
   className,
@@ -16,19 +19,19 @@ export function BrandMark({
 }) {
   return (
     <span
-      aria-hidden="true"
       className={cn(
-        'flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-brand text-brand-foreground',
+        'flex size-8 shrink-0 items-center justify-center overflow-hidden',
         className,
       )}
     >
-      <svg
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        className={cn('size-4', iconClassName)}
-      >
-        <path d="M13.5 2.5 4 13.2a.6.6 0 0 0 .47.98H10l-.5 7.32a.6.6 0 0 0 1.09.4L20 11.3a.6.6 0 0 0-.47-.98H14l.5-7.32a.6.6 0 0 0-1.09-.4Z" />
-      </svg>
+      <Image
+        src="/logo.png"
+        alt=""
+        width={1254}
+        height={1254}
+        priority
+        className={cn('size-8 object-contain', iconClassName)}
+      />
     </span>
   )
 }
@@ -44,7 +47,7 @@ export function Wordmark({
     <span className={cn('inline-flex items-center gap-2.5', className)}>
       <BrandMark className={markClassName} />
       <span className="text-base leading-6 font-bold tracking-[-0.02em]">
-        insta-p8
+        {BRAND_NAME}
       </span>
     </span>
   )

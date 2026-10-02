@@ -36,7 +36,11 @@
    1. COLOUR TOKENS
    ========================================================================= */
 
-:root {
+/* `.light` re-declares this palette on a subtree, so a surface that must stay
+   light regardless of the visitor's theme (the marketing landing page) can opt
+   in without duplicating tokens. */
+:root,
+.light {
   color-scheme: light;
 
   /* ---- Surfaces -------------------------------------------------------- */

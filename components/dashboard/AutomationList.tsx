@@ -69,7 +69,7 @@ export function AutomationList({
     const res = await fetch('/api/automations', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: rule.id, is_active: active }),
+      body: JSON.stringify({ userId, id: rule.id, is_active: active }),
     })
     if (res.ok) {
       toast.success(active ? 'Automation enabled' : 'Automation paused')
@@ -83,7 +83,7 @@ export function AutomationList({
     const res = await fetch('/api/automations', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: rule.id, action: 'duplicate' }),
+      body: JSON.stringify({ userId, id: rule.id, action: 'duplicate' }),
     })
     if (res.ok) {
       toast.success('Duplicated — the copy starts paused')

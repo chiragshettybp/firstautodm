@@ -4,8 +4,13 @@ import { useState, useCallback, useEffect } from 'react'
 import { MessageCircle, Send, Sparkles, Plus, Brain } from 'lucide-react'
 
 import { useInstagramSession } from '@/hooks/use-instagram-session'
+import { useLiveRefresh } from '@/hooks/use-live-refresh'
 import { AutomationList } from '@/components/dashboard/AutomationList'
 import { CreateRuleForm } from '@/components/dashboard/CreateRuleForm'
+import {
+  TemplateGallery,
+  type AutomationTemplate,
+} from '@/components/dashboard/TemplateGallery'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
@@ -23,6 +28,8 @@ export default function AutomationsPage() {
   const [activeTab, setActiveTab] = useState<TriggerSource>('comment')
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [editRule, setEditRule] = useState<Automation | null>(null)
+  const [template, setTemplate] = useState<AutomationTemplate | null>(null)
+  const [templateTab, setTemplateTab] = useState<TriggerSource>('comment')
   const [aiEnabled, setAiEnabled] = useState(false)
   const [aiLoading, setAiLoading] = useState(true)
   const [aiToggling, setAiToggling] = useState(false)
@@ -94,14 +101,43 @@ export default function AutomationsPage() {
     if (userId) fetchAutomations()
   }, [userId, fetchAutomations])
 
+  // Feature 9: pick up rules changed in another tab.
+  useLiveRefresh(fetchAutomations, { enabled: Boolean(userId), intervalMs: 20_000 })
+
   const handleDeleteRule = async (id: string) => {
-    await fetch(`/api/automations?id=${id}`, { method: 'DELETE' })
+    if (!userId) return
+    await fetch(
+      `/api/automations?id=${encodeURIComponent(id)}&userId=${encodeURIComponent(userId)}`,
+      { method: 'DELETE' },
+    )
     fetchAutomations()
   }
 
   const handleEditRule = (rule: Automation) => {
     setEditRule(rule)
+    setTemplate(null)
     setShowCreateForm(true)
+  }
+
+  /** Feature 8: a template fills the wizard, it does not create the rule. */
+  const handleUseTemplate = (chosen: AutomationTemplate) => {
+    setEditRule(null)
+    setTemplate(chosen)
+    if (
+      chosen.payload?.trigger_source === 'comment' ||
+      chosen.payload?.trigger_source === 'dm' ||
+      chosen.payload?.trigger_source === 'story'
+    ) {
+      setTemplateTab(chosen.payload.trigger_source)
+      setActiveTab(chosen.payload.trigger_source)
+    }
+    setShowCreateForm(true)
+  }
+
+  const handleCloseForm = () => {
+    setShowCreateForm(false)
+    setEditRule(null)
+    setTemplate(null)
   }
 
   if (isSessionLoading) {
@@ -123,6 +159,13 @@ export default function AutomationsPage() {
   const filteredAutomations = automations.filter(
     (a) => a.trigger_source === activeTab,
   )
+
+  // A template may target a different trigger than the tab the user is on.
+  const formTriggerSource: TriggerSource = editRule
+    ? editRule.trigger_source
+    : template
+      ? templateTab
+      : activeTab
   const counts = {
     comment: automations.filter((a) => a.trigger_source === 'comment').length,
     dm: automations.filter((a) => a.trigger_source === 'dm').length,
@@ -186,8 +229,13 @@ export default function AutomationsPage() {
             <Button
               variant={showCreateForm ? 'outline' : 'default'}
               onClick={() => {
-                if (showCreateForm) setEditRule(null)
-                setShowCreateForm(!showCreateForm)
+                if (showCreateForm) {
+                  handleCloseForm()
+                } else {
+                  setEditRule(null)
+                  setTemplate(null)
+                  setShowCreateForm(true)
+                }
               }}
               aria-expanded={showCreateForm}
             >
@@ -251,16 +299,18 @@ export default function AutomationsPage() {
         <Card className="fade-up p-4 sm:p-6">
           <CreateRuleForm
             userId={userId}
-            triggerSource={editRule ? editRule.trigger_source : activeTab}
+            triggerSource={formTriggerSource}
             editRule={editRule}
+            template={template}
             onSuccess={() => {
               fetchAutomations()
-              setShowCreateForm(false)
-              setEditRule(null)
+              handleCloseForm()
             }}
           />
         </Card>
-      ) : null}
+      ) : (
+        <TemplateGallery onUse={handleUseTemplate} />
+      )}
 
       <div
         id={`tabpanel-${activeTab}`}

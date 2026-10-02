@@ -33,3 +33,9 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# editor
+.vscode/
+
+# supabase CLI cache
+supabase/.temp/

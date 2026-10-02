@@ -59,6 +59,19 @@ export interface MediaSelection {
   caption?: string
 }
 
+/** A persisted funnel step (`automations.follow_up_steps[]`). */
+export interface FunnelStep {
+  id: string
+  name: string
+  wait_minutes: number
+  content: ResponseContent
+  advance_on: {
+    kind: "quick_reply" | "keyword" | "payload" | "timeout"
+    value: string
+  }
+  is_conversion_step: boolean
+}
+
 export interface Automation {
   id: string
   name: string
@@ -66,8 +79,10 @@ export interface Automation {
   trigger_value: string
   trigger_type: "keyword" | "postback" | "reply_all" | "mention" | "reaction" | "reply"
   response_content: ResponseContent
+  follow_up_steps?: FunnelStep[] | null
   is_active: boolean
   created_at: string
+  updated_at?: string
   specific_media_id?: string | null
   media_selection?: MediaSelection | null
   selected_reel_id?: string | null

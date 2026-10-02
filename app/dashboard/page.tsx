@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Activity, MessageCircle, Users, Zap } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { MessageCircle, Percent, Target, Users, Zap } from 'lucide-react'
 
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
@@ -9,6 +9,8 @@ import { StatCard } from '@/components/ui/stat-card'
 import { EmptyState } from '@/components/ui/page-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useInstagramSession } from '@/hooks/use-instagram-session'
+import { useAnalyticsOverview } from '@/hooks/use-analytics'
+import { useLiveRefresh } from '@/hooks/use-live-refresh'
 
 interface DashboardStats {
   metrics: {
@@ -33,31 +35,34 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const overview = useAnalyticsOverview(userId, '7d')
+
+  const fetchStats = useCallback(async () => {
     if (!userId) return
-
-    const fetchStats = async () => {
-      try {
-        const res = await fetch(`/api/dashboard/stats?userId=${userId}`)
-        const data = await res.json()
-        if (data && !data.error) {
-          setStats(data)
-        }
-      } catch (err) {
-        console.error('Failed to load dashboard stats', err)
-      } finally {
-        setLoading(false)
-      }
+    try {
+      const res = await fetch(`/api/dashboard/stats?userId=${userId}`)
+      const data = await res.json()
+      if (data && !data.error) setStats(data)
+    } catch (err) {
+      console.error('Failed to load dashboard stats', err)
+    } finally {
+      setLoading(false)
     }
-
-    fetchStats()
   }, [userId])
+
+  useEffect(() => {
+    if (userId) void fetchStats()
+  }, [userId, fetchStats])
+
+  // Feature 9: keep the overview fresh while the tab is open.
+  useLiveRefresh(fetchStats, { enabled: Boolean(userId) })
 
   if (isSessionLoading || loading) {
     return <OverviewSkeleton />
   }
 
   const activity = stats?.recentActivity ?? []
+  const totals = overview.data?.totals
 
   return (
     <div className="flex flex-col gap-6">
@@ -77,22 +82,34 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Messages sent"
-          value={stats?.metrics.messagesSent.toString() || '0'}
-          hint="Lifetime"
+          value={
+            totals
+              ? totals.sent.toLocaleString()
+              : stats?.metrics.messagesSent.toString() || '0'
+          }
+          hint={totals ? 'Last 7 days' : 'Lifetime'}
           icon={<MessageCircle />}
+          live={Boolean(totals)}
         />
         <StatCard
-          label="Active triggers"
-          value={stats?.metrics.activeTriggers.toString() || '0'}
-          hint="Running"
+          label="Reply rate"
+          value={totals ? `${totals.replyRate}%` : '—'}
+          hint={
+            totals
+              ? `${totals.replies} of ${totals.conversations} conversations`
+              : 'Last 7 days'
+          }
           tone="success"
-          icon={<Activity />}
+          icon={<Percent />}
+          live={Boolean(totals)}
         />
         <StatCard
-          label="Audience reached"
-          value={stats?.metrics.audienceReached.toString() || '0'}
-          hint="Unique users"
-          icon={<Users />}
+          label="Conversions"
+          value={totals ? totals.conversions.toLocaleString() : '—'}
+          hint={totals ? `${totals.conversionRate}% of triggers` : 'Last 7 days'}
+          tone="warning"
+          icon={<Target />}
+          live={Boolean(totals)}
         />
       </div>
 

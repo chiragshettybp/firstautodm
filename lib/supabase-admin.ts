@@ -22,3 +22,5 @@ export function getSupabaseAdmin(): SupabaseClient {
   })
   return _admin
 }
+
+export type { SupabaseClient }

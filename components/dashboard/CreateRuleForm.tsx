@@ -9,7 +9,10 @@ import {
   Globe
 } from "lucide-react"
 import { TagInput } from "@/components/ui/tag-input"
+import { MediaPicker } from "@/components/dashboard/MediaPicker"
+import type { AutomationTemplate } from "@/components/dashboard/TemplateGallery"
 import type { ProButton, QuickReplyOption, Automation } from "@/lib/types"
+import { IG } from "@/lib/validation"
 import { toast } from "sonner"
 
 /* ============================================================
@@ -24,6 +27,8 @@ interface CreateRuleFormProps {
   triggerSource: "comment" | "dm" | "story"
   onSuccess: () => void
   editRule?: Automation | null
+  /** Feature 8: fills every step of the wizard without saving anything yet. */
+  template?: AutomationTemplate | null
 }
 
 const STEPS = [
@@ -32,7 +37,30 @@ const STEPS = [
   { key: "settings", label: "Final Settings", sub: "Speed & restrictions" },
 ] as const
 
-export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: CreateRuleFormProps) {
+/** Editor shape of a `automations.follow_up_steps` entry (see lib/validation). */
+interface FollowUpStep {
+  id: string
+  name: string
+  waitMinutes: number
+  message: string
+  advanceKind: "quick_reply" | "keyword" | "payload" | "timeout"
+  advanceValue: string
+  isConversion: boolean
+}
+
+function newStep(index: number): FollowUpStep {
+  return {
+    id: `step_${Date.now().toString(36)}_${index}`,
+    name: `Step ${index + 1}`,
+    waitMinutes: index === 0 ? 1440 : 2880,
+    message: "",
+    advanceKind: "timeout",
+    advanceValue: "",
+    isConversion: false,
+  }
+}
+
+export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule, template }: CreateRuleFormProps) {
   const isEditing = !!editRule
   const [step, setStep] = useState(0)
 
@@ -63,6 +91,14 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
   const [checkFollow, setCheckFollow] = useState(false)
   const [delaySeconds, setDelaySeconds] = useState(0)
   const [typingIndicator, setTypingIndicator] = useState(false)
+  const [markSeen, setMarkSeen] = useState(true)
+
+  /* ---------- Funnel follow-up steps (feature 10) ---------- */
+  const [followUpSteps, setFollowUpSteps] = useState<FollowUpStep[]>([])
+
+  /* Server-side field errors, mapped back onto the inputs below */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [appliedTemplate, setAppliedTemplate] = useState<string | null>(null)
 
   const [saving, setSaving] = useState(false)
   const [reels, setReels] = useState<any[]>([])
@@ -116,6 +152,22 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
     setCheckFollow(content.check_follow === true)
     setDelaySeconds(Number(content.delay_seconds) || 0)
     setTypingIndicator(content.typing_indicator === true)
+    setMarkSeen(content.mark_seen !== false)
+
+    const rawSteps: any[] = Array.isArray(editRule.follow_up_steps)
+      ? editRule.follow_up_steps
+      : []
+    setFollowUpSteps(
+      rawSteps.map((step: any, i: number) => ({
+        id: String(step.id ?? `step_${i}`),
+        name: String(step.name ?? `Step ${i + 1}`),
+        waitMinutes: Number(step.wait_minutes) || 0,
+        message: String(step.content?.message ?? ""),
+        advanceKind: step.advance_on?.kind ?? "timeout",
+        advanceValue: String(step.advance_on?.value ?? ""),
+        isConversion: step.is_conversion_step === true,
+      })),
+    )
     
     if (editRule.specific_media_id) {
       setSelectedReel({ id: editRule.specific_media_id, caption: "Selected post" })
@@ -124,6 +176,61 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
       setHasSelectedReelOption(false)
     }
   }, [editRule])
+
+  /* Prefill from a starter template (feature 8). Applied on selection only, so
+     the user still has to review the payload and press save. */
+  useEffect(() => {
+    if (!template) return
+    const payload = template.payload ?? {}
+    const content: any = payload.response_content ?? {}
+
+    if (payload.name) setName(payload.name)
+    if (payload.trigger_type && ["mention", "reaction", "reply"].includes(payload.trigger_type)) {
+      setStoryTriggerType(payload.trigger_type as any)
+    }
+    const rawTriggers = (payload.trigger_value || "")
+      .split(",").map((t: string) => t.trim())
+      .filter((t: string) => t && !["ALL", "ALL_COMMENTS", "ALL_MENTIONS", "ALL_REACTIONS"].includes(t.toUpperCase()))
+    setTriggers(rawTriggers)
+
+    if (content.media?.url) {
+      setType("media"); setMediaUrl(content.media.url); setMediaType(content.media.type || "image")
+    } else if (content.card) {
+      setType("card")
+      setCardTitle(content.card.title || "")
+      setCardSubtitle(content.card.subtitle || "")
+      setCardImage(content.card.image_url || "")
+      setButtons((content.card.buttons || []).map((b: any, i: number) => ({ id: `${Date.now()}_${i}`, ...b })))
+    } else {
+      setType("text")
+    }
+    setMessageText(content.message || "")
+    setQuickReplies((content.quick_replies || []).map((q: any, i: number) => ({ id: `${Date.now()}_qr${i}`, title: q.title, payload: q.payload })))
+    setReplyMode(content.reply_mode || "both")
+    setPublicReplies(content.public_replies || [])
+    setIncludeReplies(content.include_replies === true)
+    setCheckFollow(content.check_follow === true)
+    setDelaySeconds(Number(content.delay_seconds) || 0)
+    setTypingIndicator(content.typing_indicator === true)
+    setMarkSeen(content.mark_seen !== false)
+
+    const rawSteps: any[] = Array.isArray(payload.follow_up_steps) ? payload.follow_up_steps : []
+    setFollowUpSteps(
+      rawSteps.map((step: any, i: number) => ({
+        id: String(step.id ?? `step_${i}`),
+        name: String(step.name ?? `Step ${i + 1}`),
+        waitMinutes: Number(step.wait_minutes) || 0,
+        message: String(step.content?.message ?? ""),
+        advanceKind: step.advance_on?.kind ?? "timeout",
+        advanceValue: String(step.advance_on?.value ?? ""),
+        isConversion: step.is_conversion_step === true,
+      })),
+    )
+
+    setFieldErrors({})
+    setStep(1)
+    setAppliedTemplate(template.name)
+  }, [template])
 
   /* Auto name */
   useEffect(() => {
@@ -150,6 +257,33 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
     setQuickReplies(quickReplies.map((q) => (q.id === id ? { ...q, title } : q)))
   const removeQuickReply = (id: string) => setQuickReplies(quickReplies.filter((q) => q.id !== id))
 
+  /* ---------- funnel step helpers ---------- */
+  const addStep = () => {
+    if (followUpSteps.length >= IG.stepsMax) return
+    setFollowUpSteps([...followUpSteps, newStep(followUpSteps.length)])
+  }
+  const updateStep = (id: string, patch: Partial<FollowUpStep>) =>
+    setFollowUpSteps(followUpSteps.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+  const removeStep = (id: string) => setFollowUpSteps(followUpSteps.filter((s) => s.id !== id))
+  const moveStep = (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= followUpSteps.length) return
+    const next = [...followUpSteps]
+    const [moved] = next.splice(index, 1)
+    next.splice(target, 0, moved)
+    setFollowUpSteps(next)
+  }
+
+  /** Steps the editor will actually persist: complete, correctly-shaped ones. */
+  const usableSteps = followUpSteps.filter((s) => s.name.trim() && s.message.trim())
+  const stepsValid = followUpSteps.every(
+    (s) =>
+      s.name.trim().length > 0 &&
+      s.message.trim().length > 0 &&
+      s.message.trim().length <= IG.messageMax &&
+      (s.advanceKind === "timeout" || s.advanceValue.trim().length > 0),
+  )
+
   const needsKeywords = triggerSource === "dm" || (triggerSource === "story" && storyTriggerType !== "mention")
 
   const whenValid = triggerSource === "comment" 
@@ -158,13 +292,13 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
 
   const thenValid =
     replyMode === "public_only" ||
-    (type === "text" ? messageText.trim().length > 0 : type === "card" ? cardTitle.trim().length > 0 : mediaUrl.trim().length > 0)
-  const canSave = whenValid && thenValid && name.trim().length > 0
+    (type === "text" ? messageText.trim().length > 0 : type === "card" ? cardTitle.trim().length > 0 : isHttpUrl(mediaUrl))
+  const canSave = whenValid && thenValid && name.trim().length > 0 && stepsValid
 
   const stepValid = [
     whenValid,  // step 0
     thenValid,  // step 1
-    name.trim().length > 0, // step 2
+    name.trim().length > 0 && stepsValid, // step 2
   ]
 
   /* Plain-language summary sentence */
@@ -190,10 +324,11 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
   const handleSubmit = async () => {
     if (!canSave || saving) return
     setSaving(true)
+    setFieldErrors({})
 
     const isReplyAll = triggerSource === "comment" && triggers.length === 0
 
-    const content: any = { check_follow: checkFollow }
+    const content: any = { check_follow: checkFollow, mark_seen: markSeen }
     if (delaySeconds > 0) content.delay_seconds = delaySeconds
     if (typingIndicator) content.typing_indicator = true
     if (triggerSource === "comment") {
@@ -234,6 +369,16 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
           : triggerSource === "story" && storyTriggerType === "reaction" && triggers.length === 0 ? "ALL_REACTIONS"
             : triggers.length > 0 ? triggers.join(", ") : "ALL",
       content,
+      follow_up_steps: usableSteps.length > 0
+        ? usableSteps.map((s, i) => ({
+            id: s.id,
+            name: s.name.trim(),
+            wait_minutes: s.waitMinutes,
+            content: { message: s.message.trim() },
+            advance_on: { kind: s.advanceKind, value: s.advanceValue.trim() },
+            is_conversion_step: s.isConversion,
+          }))
+        : null,
       specific_media_id: selectedReel?.id || null,
     }
 
@@ -246,11 +391,18 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
       if (res.ok) {
         toast.success(isEditing ? "Automation updated" : "Automation is live")
         onSuccess()
-      } else {
-        toast.error("Could not save — try again")
+        return
       }
+
+      const json = await res.json().catch(() => null)
+      if (json?.fields) {
+        setFieldErrors(json.fields as Record<string, string>)
+        toast.error(json.error ?? "Please fix the highlighted fields.")
+        return
+      }
+      toast.error(json?.error ?? "Could not save — try again")
     } catch {
-      toast.error("Network error")
+      toast.error("Network error — nothing was saved.")
     } finally {
       setSaving(false)
     }
@@ -318,6 +470,42 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
       <div className="grid lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px] items-start gap-6 xl:gap-8">
         {/* ── LEFT: Config Form ── */}
         <div className="min-w-0 space-y-6 rounded-[16px] border border-border bg-card p-5 md:p-8">
+          {appliedTemplate && !isEditing ? (
+            <div className="flex items-center gap-2.5 rounded-2xl border border-brand/20 bg-brand-soft p-3.5">
+              <Sparkles className="size-4 shrink-0 text-brand-soft-foreground" aria-hidden="true" />
+              <p className="min-w-0 flex-1 text-[11px] text-brand-soft-foreground">
+                <span className="font-bold">{appliedTemplate}</span> filled in for you.
+                Review each step, then save to activate it.
+              </p>
+              <button
+                type="button"
+                onClick={() => setAppliedTemplate(null)}
+                aria-label="Dismiss template notice"
+                className="press-subtle p-1 text-brand-soft-foreground/70 transition-colors hover:text-brand-soft-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          ) : null}
+
+          {/* Server-side validation failures, echoed back by the API route */}
+          {Object.keys(fieldErrors).length > 0 && (
+            <div
+              role="alert"
+              className="flex flex-col gap-1.5 rounded-2xl border border-danger-soft bg-danger-soft p-4"
+            >
+              <p className="text-xs font-bold text-danger-soft-foreground">
+                Instagram would reject this rule. Fix:
+              </p>
+              <ul className="list-inside list-disc space-y-0.5">
+                {Object.entries(fieldErrors).map(([key, message]) => (
+                  <li key={key} className="text-[11px] text-danger-soft-foreground">
+                    {message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {/* ===== STEP 1: TRIGGER ===== */}
           {step === 0 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
@@ -583,9 +771,16 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                       <div className="space-y-3">
                         <FieldLabel>Card configuration</FieldLabel>
                         <TextField value={cardTitle} onChange={setCardTitle} placeholder="Card main title" />
-                        <TextField value={cardSubtitle} onChange={setCardSubtitle} placeholder="Subtitle description (optional)" />
-                        <TextField value={cardImage} onChange={setCardImage} placeholder="Cover image URL (optional)" />
+<TextField value={cardSubtitle} onChange={setCardSubtitle} placeholder="Subtitle description (optional)" />
                       </div>
+                      <MediaPicker
+                        userId={userId}
+                        value={cardImage}
+                        onChange={setCardImage}
+                        kind="image"
+                        label="Card cover"
+                        hint="Instagram downloads the cover when it delivers the card, so it must be a public URL."
+                      />
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between border-b border-border pb-2">
                           <FieldLabel>Interactive buttons ({buttons.length}/3)</FieldLabel>
@@ -652,7 +847,14 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                           ))}
                         </div>
                       </div>
-                      <TextField value={mediaUrl} onChange={setMediaUrl} placeholder="Link to public media file (e.g. mp4, jpg)" />
+                      <MediaPicker
+                        userId={userId}
+                        value={mediaUrl}
+                        onChange={setMediaUrl}
+                        kind={mediaType}
+                        label="Attachment"
+                        hint="Instagram fetches this file when it sends the message, so the link has to be publicly reachable."
+                      />
                       <TextField value={messageText} onChange={setMessageText} placeholder="Optional caption message to send after..." />
                     </div>
                   )}
@@ -709,6 +911,7 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                 <FieldLabel>Delivery options</FieldLabel>
                 <ToggleRow icon={<Lock className="w-5 h-5" />} title="Follow gate required" sub="Only followers get the payload. Non-followers get follow prompt first." on={checkFollow} onToggle={() => setCheckFollow(!checkFollow)} />
                 <ToggleRow icon={<Eye className="w-5 h-5" />} title="Mimic active typing status" sub="Displays typing bubble indicators to look completely organic." on={typingIndicator} onToggle={() => setTypingIndicator(!typingIndicator)} />
+                <ToggleRow icon={<Check className="w-5 h-5" />} title="Mark the chat as read" sub="Opens the conversation as read instead of leaving an unread badge." on={markSeen} onToggle={() => setMarkSeen(!markSeen)} />
                 
                 <div className="flex items-center justify-between p-4 rounded-2xl border border-border bg-surface-secondary">
                   <div className="flex items-center gap-3">
@@ -733,6 +936,167 @@ export function CreateRuleForm({ userId, triggerSource, onSuccess, editRule }: C
                   </select>
                 </div>
               </div>
+
+              {/* ── Funnel follow-up steps (feature 10) ── */}
+              {replyMode !== "public_only" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <div>
+                      <FieldLabel>Follow-up sequence ({followUpSteps.length}/{IG.stepsMax})</FieldLabel>
+                      <p className="text-[11px] text-muted-text">
+                        Each step is scheduled automatically. Recipients can reply to move on faster.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addStep}
+                      disabled={followUpSteps.length >= IG.stepsMax}
+                      className="text-[11px] text-muted-text hover:text-foreground disabled:opacity-40 flex items-center gap-1 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Add step
+                    </button>
+                  </div>
+
+                  {followUpSteps.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-border bg-surface-secondary px-4 py-3 text-[11px] leading-5 text-muted-text">
+                      No follow-ups yet. Add a step to turn this into a sequence — for
+                      example send the asset today, ask for the order link tomorrow.
+                    </p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {followUpSteps.map((step, index) => {
+                        const stepError =
+                          !step.name.trim()
+                            ? "Name this step"
+                            : !step.message.trim()
+                              ? "Write the message to send"
+                              : step.message.trim().length > IG.messageMax
+                                ? `Keep it to ${IG.messageMax} characters`
+                                : step.advanceKind !== "timeout" && !step.advanceValue.trim()
+                                  ? "Tell us what advances past this step"
+                                  : null
+                        return (
+                          <li
+                            key={step.id}
+                            className={`rounded-2xl border p-4 ${
+                              stepError ? "border-danger-soft bg-danger-soft/40" : "border-border bg-surface-secondary"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="flex size-6 shrink-0 items-center justify-center rounded-[8px] bg-brand-soft text-[10px] font-bold text-brand-soft-foreground">
+                                {index + 1}
+                              </span>
+                              <input
+                                value={step.name}
+                                onChange={(e) => updateStep(step.id, { name: e.target.value })}
+                                maxLength={60}
+                                aria-label={`Follow-up step ${index + 1} name`}
+                                className="field h-9 flex-1 text-xs"
+                                placeholder="Step name"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => moveStep(index, -1)}
+                                disabled={index === 0}
+                                aria-label={`Move step ${index + 1} earlier`}
+                                className="press-subtle p-1.5 text-muted-text hover:text-foreground disabled:opacity-30"
+                              >
+                                <ChevronLeft className="size-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveStep(index, 1)}
+                                disabled={index === followUpSteps.length - 1}
+                                aria-label={`Move step ${index + 1} later`}
+                                className="press-subtle p-1.5 text-muted-text hover:text-foreground disabled:opacity-30"
+                              >
+                                <ChevronRight className="size-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeStep(step.id)}
+                                aria-label={`Remove step ${index + 1}`}
+                                className="press-subtle p-1.5 text-muted-text transition-colors hover:text-danger"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            </div>
+
+                            <textarea
+                              value={step.message}
+                              onChange={(e) => updateStep(step.id, { message: e.target.value })}
+                              rows={3}
+                              maxLength={IG.messageMax}
+                              aria-label={`Follow-up step ${index + 1} message`}
+                              className="field mt-2 resize-none text-xs"
+                              placeholder="Message to send at this step…"
+                            />
+
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <label className="flex items-center gap-1.5 text-[10px] text-muted-text">
+                                Wait
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={10080}
+                                  value={step.waitMinutes}
+                                  onChange={(e) =>
+                                    updateStep(step.id, { waitMinutes: Math.max(0, Number(e.target.value) || 0) })
+                                  }
+                                  aria-label={`Follow-up step ${index + 1} wait in minutes`}
+                                  className="field h-8 w-20 text-xs"
+                                />
+                                min
+                              </label>
+
+                              <select
+                                value={step.advanceKind}
+                                onChange={(e) =>
+                                  updateStep(step.id, {
+                                    advanceKind: e.target.value as FollowUpStep["advanceKind"],
+                                  })
+                                }
+                                aria-label={`Follow-up step ${index + 1} advances on`}
+                                className="field h-8 w-auto cursor-pointer text-[10px]"
+                              >
+                                <option value="timeout">Advance on timer</option>
+                                <option value="keyword">Advance on keyword reply</option>
+                                <option value="quick_reply">Advance on quick reply</option>
+                                <option value="payload">Advance on button tap</option>
+                              </select>
+
+                              {step.advanceKind !== "timeout" && (
+                                <input
+                                  value={step.advanceValue}
+                                  onChange={(e) => updateStep(step.id, { advanceValue: e.target.value })}
+                                  maxLength={100}
+                                  aria-label={`Follow-up step ${index + 1} advance value`}
+                                  className="field h-8 w-32 text-xs"
+                                  placeholder={step.advanceKind === "keyword" ? "e.g. price" : "payload"}
+                                />
+                              )}
+
+                              <label className="ml-auto flex items-center gap-1.5 text-[10px] text-muted-text">
+                                <input
+                                  type="checkbox"
+                                  checked={step.isConversion}
+                                  onChange={(e) => updateStep(step.id, { isConversion: e.target.checked })}
+                                  className="size-3.5 accent-[var(--color-brand)]"
+                                />
+                                Conversion step
+                              </label>
+                            </div>
+
+                            {stepError ? (
+                              <p className="mt-1.5 text-[10px] text-danger-soft-foreground">{stepError}</p>
+                            ) : null}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
 
               {/* Plain-text Summary Panel */}
               <div className="rounded-2xl border border-brand/15 bg-brand-soft p-5 space-y-2">
@@ -953,8 +1317,13 @@ function incomingMsg(triggerSource: string, triggers: string[]): string {
 function hasDMContent(type: string, messageText: string, cardTitle: string, mediaUrl: string): boolean {
   if (type === "text" && messageText.trim().length > 0) return true
   if (type === "card" && cardTitle.trim().length > 0) return true
-  if (type === "media" && mediaUrl.trim().length > 0) return true
+  if (type === "media" && isHttpUrl(mediaUrl)) return true
   return false
+}
+
+/** Instagram rejects anything that is not an absolute http(s) URL. */
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\/\S+$/i.test(value.trim())
 }
 
 function StepHeader({ number, title, description }: { number: number; title: string; description: string }) {

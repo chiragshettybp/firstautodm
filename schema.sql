@@ -428,3 +428,312 @@ $$;
 -- Or run manually in the SQL editor:
 --   DELETE FROM public.unlock_attempts WHERE updated_at < NOW() - INTERVAL '24 hours';
 -- =========================================================================
+
+
+-- =========================================================================
+-- FEATURES 6-12: analytics, funnels, queue, templates, media
+-- =========================================================================
+--
+-- MIGRATION NOTES (read before applying)
+--
+-- 1. Sections 13, 14, 16, 17, 18 below use CREATE TABLE / CREATE INDEX IF NOT
+--    EXISTS, so lib/supabase-migrate.ts applies them automatically on cold start.
+--
+-- 2. Section 15 (dm_queue rebuild) and the users limit columns use ALTER TABLE,
+--    which the auto-migration parser does NOT collect. Apply section 15 and the
+--    ALTER TABLE in section 13b manually via the Supabase SQL editor the first
+--    time. They are idempotent, so re-running is safe.
+--
+-- 3. lib/supabase-migrate.ts executes through an `exec_sql` RPC. If that RPC is
+--    absent the runner logs a warning and stops. Every statement below is
+--    therefore written to also be valid when pasted directly into the SQL editor.
+-- =========================================================================
+
+-- =========================================================================
+-- 13. Per-user sending limits (Feature 9: rate limiting / messaging window)
+-- Idempotent ALTERs. Applied manually on first run (auto-migration does not
+-- collect ALTER TABLE). Safe to re-run.
+-- =========================================================================
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS dm_daily_limit      INTEGER NOT NULL DEFAULT 250,
+  ADD COLUMN IF NOT EXISTS dm_min_spacing_secs INTEGER NOT NULL DEFAULT 60,
+  ADD COLUMN IF NOT EXISTS dm_window_hours     INTEGER NOT NULL DEFAULT 24;
+
+-- =========================================================================
+-- 14. Table: public.funnel_sessions (Feature 10: multistep funnels)
+-- Created before automation_events so the FK resolves on a cold database.
+-- The UNIQUE constraint makes funnel entry idempotent: a recipient who
+-- re-triggers the same automation continues the existing session instead of
+-- restarting the funnel.
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.funnel_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  automation_id UUID NOT NULL REFERENCES public.automations(id) ON DELETE CASCADE,
+  conversation_id UUID REFERENCES public.conversations(id) ON DELETE SET NULL,
+  recipient_id TEXT NOT NULL,
+  current_step INTEGER NOT NULL DEFAULT 0,
+  total_steps INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active'
+    CHECK (status IN ('active', 'completed', 'abandoned', 'failed')),
+  entered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_activity_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ,
+  UNIQUE (automation_id, recipient_id, conversation_id)
+);
+
+-- =========================================================================
+-- 15. Rebuild public.dm_queue in place (Feature 9)
+--
+-- The legacy shape (user_id TEXT, access_token TEXT NOT NULL, message TEXT
+-- NOT NULL) is unusable and unsafe: it duplicates the Meta access token on
+-- every queued row and has no foreign key, no idempotency key and no retry
+-- metadata. Nothing in the application reads this table, so it has been
+-- upgraded in place rather than dropped, per the "no DROP TABLE" rule.
+--
+-- owner_id is the real foreign key. The legacy user_id / access_token /
+-- message columns are retained but relaxed to nullable so that existing rows
+-- survive and new rows can use owner_id / content instead.
+--
+-- Apply this section manually once (ALTER TABLE is not auto-migrated).
+-- =========================================================================
+ALTER TABLE public.dm_queue ALTER COLUMN access_token DROP NOT NULL;
+ALTER TABLE public.dm_queue ALTER COLUMN message     DROP NOT NULL;
+
+ALTER TABLE public.dm_queue
+  ADD COLUMN IF NOT EXISTS owner_id         BIGINT REFERENCES public.users(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS automation_id    UUID REFERENCES public.automations(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS conversation_id  UUID REFERENCES public.conversations(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS funnel_session_id UUID REFERENCES public.funnel_sessions(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS recipient_id     TEXT,
+  ADD COLUMN IF NOT EXISTS recipient_username TEXT,
+  ADD COLUMN IF NOT EXISTS comment_id       TEXT,
+  ADD COLUMN IF NOT EXISTS kind             TEXT,
+  ADD COLUMN IF NOT EXISTS trigger_source   TEXT,
+  ADD COLUMN IF NOT EXISTS trigger_type     TEXT,
+  ADD COLUMN IF NOT EXISTS step_index       INTEGER,
+  ADD COLUMN IF NOT EXISTS step_name        TEXT,
+  ADD COLUMN IF NOT EXISTS is_conversion_step BOOLEAN,
+  ADD COLUMN IF NOT EXISTS content          JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS priority         INTEGER NOT NULL DEFAULT 100,
+  ADD COLUMN IF NOT EXISTS claimed_at       TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS dedupe_key       TEXT,
+  ADD COLUMN IF NOT EXISTS max_attempts     INTEGER NOT NULL DEFAULT 3,
+  ADD COLUMN IF NOT EXISTS latency_ms       INTEGER,
+  ADD COLUMN IF NOT EXISTS last_error       TEXT;
+
+-- Widen the legacy status domain to the queue's real lifecycle.
+ALTER TABLE public.dm_queue DROP CONSTRAINT IF EXISTS dm_queue_status_check;
+ALTER TABLE public.dm_queue
+  ADD CONSTRAINT dm_queue_status_check CHECK (status IN
+    ('pending', 'processing', 'sent', 'failed', 'blocked_window', 'rate_limited', 'cancelled'));
+
+-- =========================================================================
+-- 16. Table: public.automation_events (Features 6 & 7: funnel analytics)
+-- The single source of truth for every analytics figure in the product.
+--
+-- automation_id is ON DELETE SET NULL and automation_name is denormalized, so
+-- deleting a rule never destroys its historical performance record.
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.automation_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  automation_id UUID REFERENCES public.automations(id) ON DELETE SET NULL,
+  automation_name TEXT,
+  conversation_id UUID REFERENCES public.conversations(id) ON DELETE SET NULL,
+  funnel_session_id UUID REFERENCES public.funnel_sessions(id) ON DELETE SET NULL,
+  recipient_id TEXT,
+  trigger_source TEXT NOT NULL,
+  trigger_type TEXT NOT NULL,
+  event_type TEXT NOT NULL CHECK (event_type IN
+    ('matched', 'queued', 'sent', 'failed', 'blocked_window', 'rate_limited',
+     'gated', 'step_entered', 'advanced', 'completed', 'abandoned')),
+  step_index INTEGER,
+  step_name TEXT,
+  latency_ms INTEGER,
+  error TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- =========================================================================
+-- 17. Table: public.automation_templates (Feature 8: templates)
+-- Seeded by an idempotent server-side upsert in app/api/automation-templates,
+-- so the rows are real persisted backend data and self-heal on cold start
+-- without depending on the exec_sql migration path.
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.automation_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  icon TEXT NOT NULL,
+  accent TEXT NOT NULL,
+  category TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- =========================================================================
+-- 18. Table: public.uploaded_media (Feature 11: media uploads)
+-- Tracks ownership so media can be listed and deleted. Deleting the row also
+-- removes the Storage object, so no orphaned files accumulate.
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.uploaded_media (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  bucket TEXT NOT NULL,
+  object_path TEXT NOT NULL,
+  public_url TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('image', 'video', 'audio')),
+  size_bytes BIGINT NOT NULL,
+  original_name TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, bucket, object_path)
+);
+
+-- =========================================================================
+-- Indexes for features 6-12
+-- =========================================================================
+CREATE INDEX IF NOT EXISTS idx_funnel_sessions_user_status
+  ON public.funnel_sessions(user_id, status, last_activity_at DESC);
+CREATE INDEX IF NOT EXISTS idx_funnel_sessions_recipient
+  ON public.funnel_sessions(user_id, recipient_id, status);
+
+-- Exactly-once semantics: a re-delivered webhook event or a double tap cannot
+-- produce a duplicate DM.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dm_queue_dedupe
+  ON public.dm_queue(dedupe_key) WHERE dedupe_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_dm_queue_claim
+  ON public.dm_queue(owner_id, status, send_at)
+  WHERE status IN ('pending', 'rate_limited');
+CREATE INDEX IF NOT EXISTS idx_dm_queue_session
+  ON public.dm_queue(funnel_session_id, step_index) WHERE funnel_session_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_automation_events_user_created
+  ON public.automation_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_automation_events_user_type
+  ON public.automation_events(user_id, event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_automation_events_rule
+  ON public.automation_events(automation_id, event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_automation_events_session
+  ON public.automation_events(funnel_session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_automation_events_source
+  ON public.automation_events(user_id, trigger_source, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_uploaded_media_user_created
+  ON public.uploaded_media(user_id, created_at DESC);
+
+-- =========================================================================
+-- Storage Bucket: dm-media (Feature 11)
+-- Public because Meta's servers fetch the media URL server-side when
+-- delivering a DM. Object paths are namespaced {userId}/{uuid}.{ext} so
+-- ownership can be verified from the path.
+-- =========================================================================
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('dm-media', 'dm-media', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "dm_media_select" ON storage.objects;
+CREATE POLICY "dm_media_select" ON storage.objects
+  FOR SELECT TO public
+  USING (bucket_id = 'dm-media');
+
+-- =========================================================================
+-- RPC: claim_dm_queue -- atomically claim due messages for delivery
+--
+-- FOR UPDATE SKIP LOCKED guarantees that concurrent webhook invocations and
+-- the cron drain never claim the same row, so a message can never be sent
+-- twice. Applying the UPDATE through a CTE keeps the lock held for the whole
+-- claim+transition, which also makes the attempt counter race-free.
+-- =========================================================================
+CREATE OR REPLACE FUNCTION public.claim_dm_queue(
+  p_owner_id BIGINT,
+  p_limit INTEGER DEFAULT 5
+)
+RETURNS SETOF public.dm_queue
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  WITH due AS (
+    SELECT id
+    FROM public.dm_queue
+    WHERE owner_id = p_owner_id
+      AND status IN ('pending', 'rate_limited')
+      AND send_at <= NOW()
+    ORDER BY priority ASC, send_at ASC
+    LIMIT GREATEST(p_limit, 1)
+    FOR UPDATE SKIP LOCKED
+  )
+  UPDATE public.dm_queue q
+  SET status = 'processing',
+      claimed_at = NOW(),
+      attempts = q.attempts + 1
+  FROM due d
+  WHERE q.id = d.id
+  RETURNING q.*;
+END;
+$$;
+
+-- =========================================================================
+-- RLS for the feature 6-12 tables
+--
+-- dm_queue now has a real BIGINT owner_id foreign key, so its policy is
+-- redefined to match on owner_id instead of the legacy TEXT user_id.
+-- =========================================================================
+DROP POLICY IF EXISTS "dm_queue_select_own" ON public.dm_queue;
+CREATE POLICY "dm_queue_select_own" ON public.dm_queue
+  FOR SELECT TO anon, authenticated
+  USING (owner_id = (current_setting('request.jwt.claims', true)::json->>'sub')::bigint);
+
+DROP POLICY IF EXISTS "funnel_sessions_select_own" ON public.funnel_sessions;
+DROP POLICY IF EXISTS "automation_events_select_own" ON public.automation_events;
+DROP POLICY IF EXISTS "automation_templates_select_own" ON public.automation_templates;
+DROP POLICY IF EXISTS "uploaded_media_select_own" ON public.uploaded_media;
+DROP POLICY IF EXISTS "uploaded_media_insert_own" ON public.uploaded_media;
+DROP POLICY IF EXISTS "uploaded_media_delete_own" ON public.uploaded_media;
+
+CREATE POLICY "funnel_sessions_select_own" ON public.funnel_sessions
+  FOR SELECT TO anon, authenticated
+  USING (user_id = (current_setting('request.jwt.claims', true)::json->>'sub')::bigint);
+
+CREATE POLICY "automation_events_select_own" ON public.automation_events
+  FOR SELECT TO anon, authenticated
+  USING (user_id = (current_setting('request.jwt.claims', true)::json->>'sub')::bigint);
+
+-- Templates are read-only reference data shared by every account.
+CREATE POLICY "automation_templates_select_own" ON public.automation_templates
+  FOR SELECT TO anon, authenticated
+  USING (is_active = TRUE);
+
+CREATE POLICY "uploaded_media_select_own" ON public.uploaded_media
+  FOR SELECT TO anon, authenticated
+  USING (user_id = (current_setting('request.jwt.claims', true)::json->>'sub')::bigint);
+CREATE POLICY "uploaded_media_insert_own" ON public.uploaded_media
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (user_id = (current_setting('request.jwt.claims', true)::json->>'sub')::bigint);
+CREATE POLICY "uploaded_media_delete_own" ON public.uploaded_media
+  FOR DELETE TO anon, authenticated
+  USING (user_id = (current_setting('request.jwt.claims', true)::json->>'sub')::bigint);
+
+ALTER TABLE public.funnel_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.automation_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.automation_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.uploaded_media ENABLE ROW LEVEL SECURITY;
+
+-- =========================================================================
+-- Realtime (Phase 9): the dashboard subscribes to postgres_changes so
+-- analytics and funnel progress update instantly across pages and tabs.
+--
+-- Realtime only emits for tables in the `supabase_realtime` publication.
+-- The client pairs every subscription with a polling fallback, so the app
+-- behaves correctly whether or not this is applied. To enable push updates:
+--
+--   ALTER PUBLICATION supabase_realtime ADD TABLE public.automations;
+--   ALTER PUBLICATION supabase_realtime ADD TABLE public.funnel_sessions;
+--   ALTER PUBLICATION supabase_realtime ADD TABLE public.automation_events;
+--   ALTER PUBLICATION supabase_realtime ADD TABLE public.uploaded_media;
+-- =========================================================================
